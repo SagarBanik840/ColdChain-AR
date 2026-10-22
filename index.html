@@ -310,7 +310,7 @@
     };
 
     // Global Application State
-    window.AppState = {
+    const AppState = {
       grid: new Uint8Array(SIM_CONFIG.TOTAL_CELLS), // cell types
       temperatures: [], // [hourIndex 0..4][cellIndex 0..99]
       currentHourIndex: 4, // 0=0h, 1=12h, 2=24h, 3=36h, 4=48h
@@ -329,6 +329,7 @@
         status: 'CRITICAL_BREACH'
       }
     };
+    window.AppState = AppState;
 
     // Coordinate conversion utility
     function getIndex(x, y, z) {
@@ -428,7 +429,7 @@
         if (type === SIM_CONFIG.TYPE_COLD_PACK) {
           currentTemps[i] = AppState.isFrozenDemo ? -4.5 : 0.8;
         } else if (type === SIM_CONFIG.TYPE_AIR_POCKET) {
-          currentTemps[i] = 16.5; // Trapped warehouse packing air
+          currentTemps[i] = 22.0; // Trapped warm warehouse packing air
         } else {
           currentTemps[i] = 5.0; // Standard vaccine pack temperature
         }
@@ -453,9 +454,9 @@
 
                 // Cold packs have active phase-change thermal clamping
                 if (type === SIM_CONFIG.TYPE_COLD_PACK) {
-                  const baseIce = AppState.isFrozenDemo ? -4.0 : 0.6;
-                  // Gradual melting over 48 hours
-                  nextTemps[idx] = baseIce + (h / 48) * 2.2;
+                  const baseIce = AppState.isFrozenDemo ? -4.5 : 0.6;
+                  // Gradual phase melting over 48 hours
+                  nextTemps[idx] = baseIce + (h / 48) * 1.8;
                   continue;
                 }
 
@@ -467,12 +468,11 @@
                 ];
 
                 let heatFlux = 0.0;
-                const isPerimeter = (x === 0 || x === 4 || y === 0 || y === 3 || z === 0 || z === 4);
 
                 for (let n = 0; n < neighbors.length; n++) {
                   const nb = neighbors[n];
                   let neighborTemp;
-                  let conductance = 0.055; // Conduction coefficient
+                  let conductance = 0.035;
 
                   if (nb.x < 0 || nb.x >= SIM_CONFIG.GRID_X ||
                       nb.y < 0 || nb.y >= SIM_CONFIG.GRID_Y ||
@@ -482,24 +482,24 @@
                     const isEdgeCorner = (x === 0 || x === 4) && (z === 0 || z === 4);
                     const boundaryTemp = isEdgeCorner ? SIM_CONFIG.REEFER_EDGE_AIR : SIM_CONFIG.AMBIENT_AIR;
                     neighborTemp = boundaryTemp;
-                    conductance = 0.018; // Pallet insulation wall resistance
+                    conductance = isEdgeCorner ? 0.022 : 0.0022; // High-efficiency insulated container walls
                   } else {
                     const nIdx = getIndex(nb.x, nb.y, nb.z);
                     neighborTemp = currentTemps[nIdx];
                     if (AppState.grid[nIdx] === SIM_CONFIG.TYPE_COLD_PACK) {
-                      conductance = 0.12; // High cold-sink transfer
+                      conductance = 0.095; // Active cold conduction
                     } else if (AppState.grid[nIdx] === SIM_CONFIG.TYPE_AIR_POCKET) {
-                      conductance = 0.02; // Stagnant air insulation
+                      conductance = 0.035; // Heat radiation from warm pocket
                     }
                   }
 
                   heatFlux += conductance * (neighborTemp - currentTemps[idx]);
                 }
 
-                // Internal metabolic/stagnation factor in core
+                // Internal metabolic/stagnation factor in core air pockets
                 const isCore = (x >= 1 && x <= 3 && y >= 1 && y <= 2 && z >= 1 && z <= 3);
                 if (isCore && type === SIM_CONFIG.TYPE_AIR_POCKET) {
-                  heatFlux += 0.045; // Stagnant trapped heat buildup
+                  heatFlux += 0.50; // Stagnant trapped heat buildup
                 }
 
                 nextTemps[idx] = currentTemps[idx] + heatFlux * dt;
@@ -536,9 +536,9 @@
       // 2D Spreadsheets measure ONLY external wall sensors (Sensor 1 at corner, Sensor 2 at door)
       const sensorIndices = [
         getIndex(0, 3, 0), // Top Left Corner
-        getIndex(4, 3, 4), // Rear Wall Logger
-        getIndex(0, 3, 4), // Door Sensor
-        getIndex(4, 0, 0)  // Base Edge
+        getIndex(4, 0, 0), // Floor Edge Probe
+        getIndex(0, 0, 4), // Rear Perimeter
+        getIndex(4, 3, 4)  // Door Receptacle
       ];
 
       sensorIndices.forEach(idx => {
