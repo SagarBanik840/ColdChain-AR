@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ColdChain-AR | Volumetric Thermal Breach Detection (Meta Quest 3S)</title>
+  
+  <!-- Pinned A-Frame 1.6.0 CDN (Mandatory Single-File Architecture) -->
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+
+  <style>
+    /* -------------------------------------------------------------
+       2D Screen Mirror & Presentation Overlay (Judges / Mobile / PC)
+       ------------------------------------------------------------- */
+    :root {
+      --bg-dark: rgba(10, 15, 29, 0.92);
+      --border-cyan: #00e5ff;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #030712;
+      color: var(--text-main);
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Floating On-Screen Telemetry HUD for Non-VR Audiences */
+    #desktop-hud {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 420px;
+      pointer-events: none;
+    }
+
+    .glass-card {
+      background: var(--bg-dark);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 229, 255, 0.25);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 16px rgba(0, 229, 255, 0.15);
+      pointer-events: auto;
+    }
+
+    .hud-title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--border-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .hud-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(0, 229, 255, 0.15);
+      border: 1px solid var(--border-cyan);
+      color: var(--border-cyan);
+    }
+
+    .problem-statement {
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--text-muted);
+      border-left: 2px solid var(--accent-amber);
+      padding-left: 8px;
+      margin-bottom: 10px;
+    }
+
+    /* Telemetry Grid */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .metric-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .metric-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      font-family: "SF Mono", Consolas, Monaco, monospace;
+      margin-top: 2px;
+    }
+
+    .metric-val.breach {
+      color: var(--accent-red);
+      text-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+    }
+
+    .metric-val.safe {
+      color: var(--accent-green);
+      text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    }
+
+    /* Status Banner */
+    .status-banner {
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .status-banner.fail {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid var(--accent-red);
+      color: #fca5a5;
+    }
+
+    .status-banner.pass {
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid var(--accent-green);
+      color: #6ee7b7;
+    }
+
+    /* Preset Quick-Buttons for 2D Screen Users */
+    .hud-btn-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .hud-btn {
+      flex: 1 1 calc(33.333% - 4px);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 5px;
+      color: var(--text-main);
+      padding: 6px 4px;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+
+    .hud-btn:hover {
+      background: rgba(0, 229, 255, 0.25);
+      border-color: var(--border-cyan);
+    }
+
+    .hud-btn.active {
+      background: var(--border-cyan);
+      color: #000;
+      font-weight: 700;
+      border-color: #ffffff;
+    }
+
+    /* Quest 3S Headset Instructions Banner */
+    #headset-prompt {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--border-cyan);
+      border-radius: 30px;
+      padding: 10px 24px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+      pointer-events: auto;
+    }
+
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: pulseAnim 1.8s infinite;
+    }
+
+    @keyframes pulseAnim {
+      0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    /* Hide 2D UI elements automatically during Quest AR Passthrough */
+    .in-ar #desktop-hud,
+    .in-ar #headset-prompt {
+      display: none !important;
+    }
+  </style>
+
+  <script>
+    /* =========================================================================
+       AUDIO SYNTHESIZER (Pure Web Audio API - Zero External Audio Files)
+       ========================================================================= */
+    const SoundEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+      playTone(freq, type = 'sine', duration = 0.08, gainVal = 0.15) {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {
+          console.warn('Audio play error:', e);
+        }
+      },
+      click() {
+        this.playTone(850, 'triangle', 0.06, 0.12);
+      },
+      toggleCell() {
+        this.playTone(520, 'sine', 0.04, 0.15);
+        setTimeout(() => this.playTone(740, 'triangle', 0.08, 0.15), 45);
+      },
+      error() {
+        this.playTone(180, 'sawtooth', 0.18, 0.2);
+        setTimeout(() => this.playTone(140, 'sawtooth', 0.22, 0.2), 90);
+      },
+      success() {
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+          setTimeout(() => this.playTone(freq, 'sine', 0.14, 0.18), idx * 75);
+        });
+      },
+      explode() {
+        this.playTone(320, 'sine', 0.12, 0.15);
+        setTimeout(() => this.playTone(480, 'sine', 0.14, 0.15), 60);
+      }
+    };
+
+    /* =========================================================================
+       COLDCHAIN-AR THERMODYNAMIC SIMULATION ENGINE
+       - Grid: 5 (X) x 4 (Y) x 5 (Z) = 100 Volumetric Cells
+       - Resolves "The Self-Cooling Core Bug" via convective perimeter sinks
+         and stagnant core air pockets.
+       ========================================================================= */
+    const SIM_CONFIG = {
+      GRID_X: 5,
+      GRID_Y: 4,
+      GRID_Z: 5,
+      TOTAL_CELLS: 100,
+      MAX_COLD_PACKS: 8,
+      SAFE_MIN: 2.0,
+      SAFE_MAX: 8.0,
+      AMBIENT_AIR: 35.0,     // 35°C Tarmac / Warehouse transit heat
+      REEFER_EDGE_AIR: 4.8,  // 4.8°C Forced reefer flow around container walls
+      
+      // Cell Types
+      TYPE_VACCINE: 0,
+      TYPE_COLD_PACK: 1,
+      TYPE_AIR_POCKET: 2
+    };
+
+    // Global Application State
+    window.AppState = {
+      grid: new Uint8Array(SIM_CONFIG.TOTAL_CELLS), // cell types
+      temperatures: [], // [hourIndex 0..4][cellIndex 0..99]
+      currentHourIndex: 4, // 0=0h, 1=12h, 2=24h, 3=36h, 4=48h
+      hours: [0, 12, 24, 36, 48],
+      coldPackCount: 0,
+      layerFilter: 'ALL', // 'ALL', 'TOP_CUT', 'CORE', 'BASE'
+      isExploded: false,
+      isFrozenDemo: false,
+      stats: {
+        avgTemp2D: 5.8,
+        maxTemp3D: 11.4,
+        minTemp3D: 3.8,
+        breachedCount: 14,
+        freezeCount: 0,
+        safeCount: 83,
+        status: 'CRITICAL_BREACH'
+      }
+    };
+
+    // Coordinate conversion utility
+    function getIndex(x, y, z) {
+      return x + y * SIM_CONFIG.GRID_X + z * (SIM_CONFIG.GRID_X * SIM_CONFIG.GRID_Y);
+    }
+
+    function getCoords(index) {
+      const xy = SIM_CONFIG.GRID_X * SIM_CONFIG.GRID_Y;
+      const z = Math.floor(index / xy);
+      const rem = index % xy;
+      const y = Math.floor(rem / SIM_CONFIG.GRID_X);
+      const x = rem % SIM_CONFIG.GRID_X;
+      return { x, y, z };
+    }
+
+    // Initialize Preset: Bad Packing (The Real-World Operational Failure)
+    function loadBadPackingPreset() {
+      const g = AppState.grid;
+      g.fill(SIM_CONFIG.TYPE_VACCINE);
+      AppState.isFrozenDemo = false;
+
+      // Bad packing practice: 3 cold packs placed only on the top-outer corners
+      // where external temperature loggers are located to pass inspection.
+      g[getIndex(0, 3, 0)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(4, 3, 4)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(0, 3, 4)] = SIM_CONFIG.TYPE_COLD_PACK;
+
+      // Trapped warm warehouse loading air in the core (16.5°C stagnant pockets)
+      g[getIndex(2, 1, 2)] = SIM_CONFIG.TYPE_AIR_POCKET;
+      g[getIndex(2, 2, 2)] = SIM_CONFIG.TYPE_AIR_POCKET;
+      g[getIndex(1, 1, 2)] = SIM_CONFIG.TYPE_AIR_POCKET;
+      g[getIndex(3, 2, 2)] = SIM_CONFIG.TYPE_AIR_POCKET;
+
+      recalculateSimulation();
+    }
+
+    // Initialize Preset: AI Auto-Optimized Packing (0 Breaches, Ready to Ship)
+    function loadOptimizedPackingPreset() {
+      const g = AppState.grid;
+      g.fill(SIM_CONFIG.TYPE_VACCINE);
+      AppState.isFrozenDemo = false;
+
+      // 7 Cold packs deployed with 3D thermal distribution:
+      // Sandwich layer in core + bottom heat sinks to counter stagnant convection
+      g[getIndex(2, 0, 2)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(2, 1, 2)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(2, 2, 2)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(1, 1, 1)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(3, 1, 3)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(1, 2, 3)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(3, 2, 1)] = SIM_CONFIG.TYPE_COLD_PACK;
+
+      recalculateSimulation();
+    }
+
+    // Initialize Preset: Freeze Risk Demonstration
+    function loadFreezeRiskPreset() {
+      const g = AppState.grid;
+      g.fill(SIM_CONFIG.TYPE_VACCINE);
+      AppState.isFrozenDemo = true;
+
+      // 8 Sub-zero dry ice blocks (-5°C) placed in immediate contact with fragile mRNA vials
+      g[getIndex(1, 0, 1)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(3, 0, 1)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(1, 0, 3)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(3, 0, 3)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(2, 1, 2)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(1, 2, 2)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(3, 2, 2)] = SIM_CONFIG.TYPE_COLD_PACK;
+      g[getIndex(2, 3, 2)] = SIM_CONFIG.TYPE_COLD_PACK;
+
+      recalculateSimulation();
+    }
+
+    /* -------------------------------------------------------------
+       Deterministic Heat Transfer Engine
+       Simulates 48 hours of transit thermodynamics in ~2 milliseconds.
+       ------------------------------------------------------------- */
+    function recalculateSimulation() {
+      const hoursList = AppState.hours; // [0, 12, 24, 36, 48]
+      AppState.temperatures = [];
+      let currentPackCount = 0;
+
+      for (let i = 0; i < SIM_CONFIG.TOTAL_CELLS; i++) {
+        if (AppState.grid[i] === SIM_CONFIG.TYPE_COLD_PACK) {
+          currentPackCount++;
+        }
+      }
+      AppState.coldPackCount = currentPackCount;
+
+      // Working buffer for cell temperatures
+      let currentTemps = new Float32Array(SIM_CONFIG.TOTAL_CELLS);
+
+      // t = 0 Initial Condition
+      for (let i = 0; i < SIM_CONFIG.TOTAL_CELLS; i++) {
+        const type = AppState.grid[i];
+        if (type === SIM_CONFIG.TYPE_COLD_PACK) {
+          currentTemps[i] = AppState.isFrozenDemo ? -4.5 : 0.8;
+        } else if (type === SIM_CONFIG.TYPE_AIR_POCKET) {
+          currentTemps[i] = 16.5; // Trapped warehouse packing air
+        } else {
+          currentTemps[i] = 5.0; // Standard vaccine pack temperature
+        }
+      }
+      AppState.temperatures.push(new Float32Array(currentTemps));
+
+      // Simulate step by step to hour 48
+      const totalHours = 48;
+      const subStepsPerHour = 4;
+      const dt = 1.0 / subStepsPerHour;
+      let snapshotIndex = 1;
+
+      for (let h = 1; h <= totalHours; h++) {
+        for (let s = 0; s < subStepsPerHour; s++) {
+          const nextTemps = new Float32Array(currentTemps);
+
+          for (let z = 0; z < SIM_CONFIG.GRID_Z; z++) {
+            for (let y = 0; y < SIM_CONFIG.GRID_Y; y++) {
+              for (let x = 0; x < SIM_CONFIG.GRID_X; x++) {
+                const idx = getIndex(x, y, z);
+                const type = AppState.grid[idx];
+
+                // Cold packs have active phase-change thermal clamping
+                if (type === SIM_CONFIG.TYPE_COLD_PACK) {
+                  const baseIce = AppState.isFrozenDemo ? -4.0 : 0.6;
+                  // Gradual melting over 48 hours
+                  nextTemps[idx] = baseIce + (h / 48) * 2.2;
+                  continue;
+                }
+
+                // Diffusion from 6 orthogonal neighbors
+                const neighbors = [
+                  { x: x - 1, y, z }, { x: x + 1, y, z },
+                  { x, y: y - 1, z }, { x, y: y + 1, z },
+                  { x, y, z: z - 1 }, { x, y, z: z + 1 }
+                ];
+
+                let heatFlux = 0.0;
+                const isPerimeter = (x === 0 || x === 4 || y === 0 || y === 3 || z === 0 || z === 4);
+
+                for (let n = 0; n < neighbors.length; n++) {
+                  const nb = neighbors[n];
+                  let neighborTemp;
+                  let conductance = 0.055; // Conduction coefficient
+
+                  if (nb.x < 0 || nb.x >= SIM_CONFIG.GRID_X ||
+                      nb.y < 0 || nb.y >= SIM_CONFIG.GRID_Y ||
+                      nb.z < 0 || nb.z >= SIM_CONFIG.GRID_Z) {
+                    // Pallet Boundary condition
+                    // Outer edges receive reefer flow (4.8°C) + ambient leakage (35°C)
+                    const isEdgeCorner = (x === 0 || x === 4) && (z === 0 || z === 4);
+                    const boundaryTemp = isEdgeCorner ? SIM_CONFIG.REEFER_EDGE_AIR : SIM_CONFIG.AMBIENT_AIR;
+                    neighborTemp = boundaryTemp;
+                    conductance = 0.018; // Pallet insulation wall resistance
+                  } else {
+                    const nIdx = getIndex(nb.x, nb.y, nb.z);
+                    neighborTemp = currentTemps[nIdx];
+                    if (AppState.grid[nIdx] === SIM_CONFIG.TYPE_COLD_PACK) {
+                      conductance = 0.12; // High cold-sink transfer
+                    } else if (AppState.grid[nIdx] === SIM_CONFIG.TYPE_AIR_POCKET) {
+                      conductance = 0.02; // Stagnant air insulation
+                    }
+                  }
+
+                  heatFlux += conductance * (neighborTemp - currentTemps[idx]);
+                }
+
+                // Internal metabolic/stagnation factor in core
+                const isCore = (x >= 1 && x <= 3 && y >= 1 && y <= 2 && z >= 1 && z <= 3);
+                if (isCore && type === SIM_CONFIG.TYPE_AIR_POCKET) {
+                  heatFlux += 0.045; // Stagnant trapped heat buildup
+                }
+
+                nextTemps[idx] = currentTemps[idx] + heatFlux * dt;
+              }
+            }
+          }
+          currentTemps = nextTemps;
+        }
+
+        // Capture snapshot at 12h, 24h, 36h, 48h
+        if (h === hoursList[snapshotIndex]) {
+          AppState.temperatures.push(new Float32Array(currentTemps));
+          snapshotIndex++;
+        }
+      }
+
+      updateTelemetryStats();
+      broadcastStateChange();
+    }
+
+    // Compute Telemetry & Breach Metrics
+    function updateTelemetryStats() {
+      const activeTemps = AppState.temperatures[AppState.currentHourIndex];
+      if (!activeTemps) return;
+
+      let sum2D = 0;
+      let count2D = 0;
+      let max3D = -999;
+      let min3D = 999;
+      let breachedCount = 0;
+      let freezeCount = 0;
+      let safeCount = 0;
+
+      // 2D Spreadsheets measure ONLY external wall sensors (Sensor 1 at corner, Sensor 2 at door)
+      const sensorIndices = [
+        getIndex(0, 3, 0), // Top Left Corner
+        getIndex(4, 3, 4), // Rear Wall Logger
+        getIndex(0, 3, 4), // Door Sensor
+        getIndex(4, 0, 0)  // Base Edge
+      ];
+
+      sensorIndices.forEach(idx => {
+        sum2D += activeTemps[idx];
+        count2D++;
+      });
+      AppState.stats.avgTemp2D = +(sum2D / count2D).toFixed(1);
+
+      // 3D Volumetric Reality over ALL cells
+      for (let i = 0; i < SIM_CONFIG.TOTAL_CELLS; i++) {
+        const t = activeTemps[i];
+        if (t > max3D) max3D = t;
+        if (t < min3D) min3D = t;
+
+        const type = AppState.grid[i];
+        if (type === SIM_CONFIG.TYPE_VACCINE) {
+          if (t > SIM_CONFIG.SAFE_MAX) {
+            breachedCount++;
+          } else if (t < SIM_CONFIG.SAFE_MIN) {
+            freezeCount++;
+          } else {
+            safeCount++;
+          }
+        }
+      }
+
+      AppState.stats.maxTemp3D = +(max3D).toFixed(1);
+      AppState.stats.minTemp3D = +(min3D).toFixed(1);
+      AppState.stats.breachedCount = breachedCount;
+      AppState.stats.freezeCount = freezeCount;
+      AppState.stats.safeCount = safeCount;
+
+      if (freezeCount > 0) {
+        AppState.stats.status = 'FREEZE_DAMAGE';
+      } else if (breachedCount > 0) {
+        AppState.stats.status = 'CRITICAL_BREACH';
+      } else {
+        AppState.stats.status = 'ALL_SAFE_PASS';
+      }
+    }
+
+    // Notify all A-Frame components and HTML overlay of state update
+    function broadcastStateChange() {
+      window.dispatchEvent(new CustomEvent('coldchain-update', { detail: AppState }));
+    }
+
+    // Temperature to Hex Color Ramp
+    function getTempColor(t) {
+      if (t < 2.0) return '#00d2ff'; // Freeze Danger
+      if (t <= 4.5) return '#00e676'; // Cold Safe
+      if (t <= 7.5) return '#10b981'; // Optimal Emerald Green
+      if (t <= 8.0) return '#fbbf24'; // Warning Amber
+      if (t <= 10.0) return '#f97316'; // Excursion Orange
+      return '#ef4444'; // Critical Breach Crimson Red
+    }
+  </script>
+
+  <!-- =========================================================================
+       CUSTOM A-FRAME COMPONENTS
+       ========================================================================= -->
+  <script>
+    /* -------------------------------------------------------------
+       COMPONENT: voxel-pallet
+       Builds, animates, and colors the 100 3D volumetric cells.
+       ------------------------------------------------------------- */
+    AFRAME.registerComponent('voxel-pallet', {
+      schema: {
+        spacing: { type: 'number', default: 0.13 },
+        explodedSpacing: { type: 'number', default: 0.22 }
+      },
+
+      init() {
+        this.cells = [];
+        this.cellEntities = new Map();
+        this.createVoxelGrid();
+
+        // Listen for simulation updates
+        this.onUpdate = this.onUpdate.bind(this);
+        window.addEventListener('coldchain-update', this.onUpdate);
+
+        // Initial render
+        this.updateVisuals();
+      },
+
+      remove() {
+        window.removeEventListener('coldchain-update', this.onUpdate);
+      },
+
+      createVoxelGrid() {
+        const el = this.el;
+        const currentSpacing = AppState.isExploded ? this.data.explodedSpacing : this.data.spacing;
+
+        for (let z = 0; z < SIM_CONFIG.GRID_Z; z++) {
+          for (let y = 0; y < SIM_CONFIG.GRID_Y; y++) {
+            for (let x = 0; x < SIM_CONFIG.GRID_X; x++) {
+              const idx = getIndex(x, y, z);
+              const cellEl = document.createElement('a-box');
+
+              // Centered coordinate offset
+              const posX = (x - (SIM_CONFIG.GRID_X - 1) / 2) * currentSpacing;
+              const posY = y * currentSpacing;
+              const posZ = (z - (SIM_CONFIG.GRID_Z - 1) / 2) * currentSpacing;
+
+              cellEl.setAttribute('position', `${posX} ${posY} ${posZ}`);
+              cellEl.setAttribute('width', '0.105');
+              cellEl.setAttribute('height', '0.105');
+              cellEl.setAttribute('depth', '0.105');
+              cellEl.setAttribute('class', 'clickable voxel-cell');
+              cellEl.setAttribute('data-index', idx);
+              cellEl.setAttribute('material', 'roughness: 0.3; metalness: 0.1; transparent: true; opacity: 0.95');
+
+              // Subtle wireframe highlight box for edges
+              const wireEl = document.createElement('a-box');
+              wireEl.setAttribute('width', '0.108');
+              wireEl.setAttribute('height', '0.108');
+              wireEl.setAttribute('depth', '0.108');
+              wireEl.setAttribute('wireframe', 'true');
+              wireEl.setAttribute('wireframe-linewidth', '1.5');
+              wireEl.setAttribute('material', 'color: #ffffff; opacity: 0.15');
+              wireEl.setAttribute('class', 'wireframe-child');
+              cellEl.appendChild(wireEl);
+
+              // Interaction Handlers
+              cellEl.addEventListener('mouseenter', () => {
+                wireEl.setAttribute('material', 'color: #00ffff; opacity: 0.8');
+                cellEl.setAttribute('scale', '1.08 1.08 1.08');
+              });
+
+              cellEl.addEventListener('mouseleave', () => {
+                wireEl.setAttribute('material', 'color: #ffffff; opacity: 0.15');
+                cellEl.setAttribute('scale', '1 1 1');
+              });
+
+              cellEl.addEventListener('click', (evt) => {
+                evt.stopPropagation();
+                this.handleCellClick(idx);
+              });
+
+              el.appendChild(cellEl);
+              this.cellEntities.set(idx, cellEl);
+            }
+          }
+        }
+      },
+
+      handleCellClick(idx) {
+        const currentType = AppState.grid[idx];
+
+        if (currentType === SIM_CONFIG.TYPE_COLD_PACK) {
+          // Remove cold pack -> revert to standard vaccine box
+          AppState.grid[idx] = SIM_CONFIG.TYPE_VACCINE;
+          SoundEngine.toggleCell();
+        } else if (currentType === SIM_CONFIG.TYPE_AIR_POCKET) {
+          // Fill air pocket with Cold Pack if budget allows, else Vaccine
+          if (AppState.coldPackCount < SIM_CONFIG.MAX_COLD_PACKS) {
+            AppState.grid[idx] = SIM_CONFIG.TYPE_COLD_PACK;
+            SoundEngine.toggleCell();
+          } else {
+            AppState.grid[idx] = SIM_CONFIG.TYPE_VACCINE;
+            SoundEngine.toggleCell();
+          }
+        } else {
+          // Vaccine box -> Convert to Cold Pack if budget allows
+          if (AppState.coldPackCount < SIM_CONFIG.MAX_COLD_PACKS) {
+            AppState.grid[idx] = SIM_CONFIG.TYPE_COLD_PACK;
+            SoundEngine.toggleCell();
+          } else {
+            // Budget Exceeded alert
+            SoundEngine.error();
+            this.flashWarningBadge();
+            return;
+          }
+        }
+
+        // Haptic feedback on Quest Controller
+        this.triggerHaptic(0.6, 40);
+
+        recalculateSimulation();
+      },
+
+      triggerHaptic(intensity, duration) {
+        const rightHand = document.querySelector('#right-hand');
+        if (rightHand && rightHand.components['laser-controls']) {
+          const controller = rightHand.components['laser-controls'].controller;
+          if (controller && controller.gamepad && controller.gamepad.hapticActuators && controller.gamepad.hapticActuators[0]) {
+            controller.gamepad.hapticActuators[0].pulse(intensity, duration);
+          }
+        }
+      },
+
+      flashWarningBadge() {
+        const alertEl = document.querySelector('#hud-budget-alert');
+        if (alertEl) {
+          alertEl.setAttribute('visible', 'true');
+          setTimeout(() => alertEl.setAttribute('visible', 'false'), 1400);
+        }
+      },
+
+      onUpdate() {
+        this.updateVisuals();
+      },
+
+      updateVisuals() {
+        const currentSpacing = AppState.isExploded ? this.data.explodedSpacing : this.data.spacing;
+        const activeTemps = AppState.temperatures[AppState.currentHourIndex] || [];
+
+        for (let idx = 0; idx < SIM_CONFIG.TOTAL_CELLS; idx++) {
+          const cellEl = this.cellEntities.get(idx);
+          if (!cellEl) continue;
+
+          const coords = getCoords(idx);
+          const type = AppState.grid[idx];
+          const temp = activeTemps[idx] !== undefined ? activeTemps[idx] : 5.0;
+
+          // Check Layer Slicing Filter
+          let isVisible = true;
+          if (AppState.layerFilter === 'TOP_CUT') {
+            if (coords.y >= 3) isVisible = false;
+          } else if (AppState.layerFilter === 'CORE') {
+            if (coords.y === 0 || coords.y === 3) isVisible = false;
+          } else if (AppState.layerFilter === 'BASE') {
+            if (coords.y !== 0) isVisible = false;
+          }
+
+          cellEl.setAttribute('visible', isVisible);
+          if (isVisible) {
+            cellEl.classList.add('clickable');
+          } else {
+            cellEl.classList.remove('clickable');
+          }
+
+          // Update position for Compact vs Exploded
+          const posX = (coords.x - (SIM_CONFIG.GRID_X - 1) / 2) * currentSpacing;
+          const posY = coords.y * currentSpacing;
+          const posZ = (coords.z - (SIM_CONFIG.GRID_Z - 1) / 2) * currentSpacing;
+          cellEl.setAttribute('position', `${posX} ${posY} ${posZ}`);
+
+          // Visual Styling based on Cell Type & Temperature
+          if (type === SIM_CONFIG.TYPE_COLD_PACK) {
+            // Emissive Frost Cyan Cold Pack Brick
+            cellEl.setAttribute('material', {
+              color: '#00e5ff',
+              emissive: '#00838f',
+              emissiveIntensity: 0.6,
+              opacity: 0.9,
+              roughness: 0.1,
+              metalness: 0.3
+            });
+          } else if (type === SIM_CONFIG.TYPE_AIR_POCKET) {
+            // Stagnant Air Gap Wireframe Void
+            cellEl.setAttribute('material', {
+              color: '#f97316',
+              emissive: '#ea580c',
+              emissiveIntensity: 0.5,
+              opacity: 0.45,
+              wireframe: false
+            });
+          } else {
+            // Standard Vaccine Vial Case (Colored by Thermodynamic Temperature)
+            const colorHex = getTempColor(temp);
+            const isBreaching = temp > SIM_CONFIG.SAFE_MAX;
+            cellEl.setAttribute('material', {
+              color: colorHex,
+              emissive: isBreaching ? '#dc2626' : '#000000',
+              emissiveIntensity: isBreaching ? 0.45 : 0.0,
+              opacity: 0.96,
+              roughness: 0.25,
+              metalness: 0.1
+            });
+          }
+        }
+      }
+    });
+
+    /* -------------------------------------------------------------
+       COMPONENT: interactive-button
+       Clean 3D VR buttons responding to laser pointer or desktop click.
+       ------------------------------------------------------------- */
+    AFRAME.registerComponent('interactive-button', {
+      schema: {
+        action: { type: 'string' },
+        param: { type: 'string', default: '' },
+        label: { type: 'string', default: '' }
+      },
+
+      init() {
+        const el = this.el;
+        el.setAttribute('class', 'clickable');
+
+        el.addEventListener('mouseenter', () => {
+          el.setAttribute('scale', '1.06 1.06 1.06');
+        });
+
+        el.addEventListener('mouseleave', () => {
+          el.setAttribute('scale', '1 1 1');
+        });
+
+        el.addEventListener('click', (evt) => {
+          evt.stopPropagation();
+          SoundEngine.click();
+          this.executeAction();
+        });
+      },
+
+      executeAction() {
+        const action = this.data.action;
+        const param = this.data.param;
+
+        switch (action) {
+          case 'set-hour':
+            AppState.currentHourIndex = parseInt(param, 10);
+            updateTelemetryStats();
+            broadcastStateChange();
+            break;
+
+          case 'set-layer':
+            AppState.layerFilter = param;
+            broadcastStateChange();
+            break;
+
+          case 'toggle-explode':
+            AppState.isExploded = !AppState.isExploded;
+            SoundEngine.explode();
+            broadcastStateChange();
+            break;
+
+          case 'preset-bad':
+            loadBadPackingPreset();
+            SoundEngine.error();
+            break;
+
+          case 'preset-opt':
+            loadOptimizedPackingPreset();
+            SoundEngine.success();
+            break;
+
+          case 'preset-freeze':
+            loadFreezeRiskPreset();
+            SoundEngine.error();
+            break;
+        }
+      }
+    });
+
+    /* -------------------------------------------------------------
+       COMPONENT: hud-controller
+       Keeps 3D text panels in the Quest headset synchronized with state.
+       ------------------------------------------------------------- */
+    AFRAME.registerComponent('hud-controller', {
+      init() {
+        this.onUpdate = this.onUpdate.bind(this);
+        window.addEventListener('coldchain-update', this.onUpdate);
+        this.updatePanels();
+      },
+
+      remove() {
+        window.removeEventListener('coldchain-update', this.onUpdate);
+      },
+
+      onUpdate() {
+        this.updatePanels();
+      },
+
+      updatePanels() {
+        const stats = AppState.stats;
+        const currentHour = AppState.hours[AppState.currentHourIndex];
+
+        // 1. Right Wing Telemetry Text
+        const metricsEl = document.querySelector('#vr-metrics-text');
+        if (metricsEl) {
+          const lines = [
+            `SIMULATION TIME: ${currentHour}h / 48h`,
+            `3D PEAK CORE TEMP: ${stats.maxTemp3D.toFixed(1)} C`,
+            `BREACHED VIALS (>8 C): ${stats.breachedCount} VIALS`,
+            `FREEZE RISK (<2 C): ${stats.freezeCount} VIALS`,
+            `COLD PACK BUDGET: ${AppState.coldPackCount} / ${SIM_CONFIG.MAX_COLD_PACKS} USED`,
+            `VIEW MODE: ${AppState.isExploded ? 'EXPLODED (3D GAP)' : 'COMPACT PACK'}`
+          ];
+          metricsEl.setAttribute('value', lines.join('\n'));
+        }
+
+        // 2. Status Badge Color and Text
+        const statusEl = document.querySelector('#vr-status-badge');
+        if (statusEl) {
+          if (stats.status === 'ALL_SAFE_PASS') {
+            statusEl.setAttribute('value', '[ STATUS: ZERO DEFECTS - 100% SHIP READY ✔ ]');
+            statusEl.setAttribute('color', '#10b981');
+          } else if (stats.status === 'FREEZE_DAMAGE') {
+            statusEl.setAttribute('value', '[ CRITICAL: FREEZE RISK - PROTEINS DENATURED ✖ ]');
+            statusEl.setAttribute('color', '#00d2ff');
+          } else {
+            statusEl.setAttribute('value', '[ CRITICAL: THERMAL BREACH - DO NOT SHIP ✖ ]');
+            statusEl.setAttribute('color', '#ef4444');
+          }
+        }
+
+        // 3. Highlight active Time Scrubber button
+        for (let i = 0; i < AppState.hours.length; i++) {
+          const btn = document.querySelector(`#btn-hour-${i}`);
+          if (btn) {
+            const isActive = (i === AppState.currentHourIndex);
+            btn.setAttribute('material', 'color', isActive ? '#00e5ff' : '#1e293b');
+          }
+        }
+
+        // 4. Highlight active Layer button
+        const layerButtons = [
+          { id: 'btn-layer-all', val: 'ALL' },
+          { id: 'btn-layer-top', val: 'TOP_CUT' },
+          { id: 'btn-layer-core', val: 'CORE' },
+          { id: 'btn-layer-base', val: 'BASE' }
+        ];
+        layerButtons.forEach(item => {
+          const btn = document.querySelector(`#${item.id}`);
+          if (btn) {
+            const isActive = (AppState.layerFilter === item.val);
+            btn.setAttribute('material', 'color', isActive ? '#00e5ff' : '#1e293b');
+          }
+        });
+
+        // 5. Explode button label
+        const explodeBtnText = document.querySelector('#btn-explode-text');
+        if (explodeBtnText) {
+          explodeBtnText.setAttribute('value', AppState.isExploded ? 'VIEW: COMPACT' : 'VIEW: EXPLODE 3D');
+        }
+      }
+    });
+
+    /* -------------------------------------------------------------
+       COMPONENT: quest-ar-handler
+       Manages Meta Quest 3S Full-Color Passthrough transition.
+       Hides virtual skies/floors during AR so user's physical room shows.
+       ------------------------------------------------------------- */
+    AFRAME.registerComponent('quest-ar-handler', {
+      init() {
+        const sceneEl = this.el;
+        const virtualEnv = document.querySelector('#virtual-environment');
+
+        sceneEl.addEventListener('enter-vr', () => {
+          if (sceneEl.is('ar-mode')) {
+            document.body.classList.add('in-ar');
+            if (virtualEnv) virtualEnv.setAttribute('visible', 'false');
+          } else {
+            document.body.classList.remove('in-ar');
+            if (virtualEnv) virtualEnv.setAttribute('visible', 'true');
+          }
+        });
+
+        sceneEl.addEventListener('exit-vr', () => {
+          document.body.classList.remove('in-ar');
+          if (virtualEnv) virtualEnv.setAttribute('visible', 'true');
+        });
+      }
+    });
+  </script>
+</head>
+
+<body>
+  <!-- =========================================================================
+       2D SCREEN MIRROR & PRESENTATION HUD (JUDGES / AUDIENCE / LAPTOPS)
+       ========================================================================= -->
+  <div id="desktop-hud">
+    <div class="glass-card">
+      <div class="hud-title">
+        <span>ColdChain-AR</span>
+        <span class="hud-badge">Meta Quest 3S WebXR</span>
+      </div>
+      <div class="problem-statement">
+        <strong>The Operational Bottleneck:</strong> 2D temperature log spreadsheets average wall sensors and hide dangerous internal warm pockets, spoiling billions in vaccines.
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric-box">
+          <div class="metric-label">2D Excel Avg (Deceptive)</div>
+          <div class="metric-val safe" id="hud-val-2d">5.8°C</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">3D Volumetric Peak</div>
+          <div class="metric-val breach" id="hud-val-3d">11.4°C</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Breached Vials (&gt;8°C)</div>
+          <div class="metric-val breach" id="hud-val-breach">14 Vials</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Cold Packs Deployed</div>
+          <div class="metric-val" id="hud-val-packs">3 / 8 Max</div>
+        </div>
+      </div>
+
+      <div class="status-banner fail" id="hud-status-banner">
+        Status: Critical Heat Breach (Do Not Ship)
+      </div>
+
+      <!-- Quick interactive preset triggers for 2D Screen Users -->
+      <div class="hud-btn-row">
+        <button class="hud-btn active" id="html-btn-bad" onclick="loadBadPackingPreset()">Load Bad Pack</button>
+        <button class="hud-btn" id="html-btn-opt" onclick="loadOptimizedPackingPreset()">Auto-Fix (AI)</button>
+        <button class="hud-btn" id="html-btn-freeze" onclick="loadFreezeRiskPreset()">Freeze Demo</button>
+      </div>
+      <div class="hud-btn-row">
+        <button class="hud-btn" onclick="toggleHtmlExplode()">Toggle 3D Explode</button>
+        <button class="hud-btn" onclick="cycleHtmlLayers()">Cycle Layer Slice</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="headset-prompt">
+    <div class="pulse-dot"></div>
+    <span>Quest 3S: Tap <strong>Enter AR</strong> for Passthrough or use Mouse to Orbit & Click</span>
+  </div>
+
+  <!-- =========================================================================
+       A-FRAME 3D SCENE RIG
+       ========================================================================= -->
+  <a-scene
+    quest-ar-handler
+    hud-controller
+    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: false"
+    xr-mode-ui="enabled: true; enterAREnabled: true; enterVREnabled: true"
+    webxr="optionalFeatures: local-floor, bounded-floor, hand-tracking">
+
+    <!-- CAMERA & CONTROLLER RIG -->
+    <a-entity id="rig" position="0 0 0">
+      <a-camera id="camera" position="0 1.6 0" look-controls wasd-controls>
+        <!-- Desktop Mouse & Gaze Raycaster -->
+        <a-entity
+          cursor="rayOrigin: mouse"
+          raycaster="objects: .clickable; far: 10">
+        </a-entity>
+      </a-camera>
+
+      <!-- Meta Quest 3S Touch Plus Right Controller -->
+      <a-entity
+        id="right-hand"
+        laser-controls="hand: right"
+        raycaster="objects: .clickable; far: 4; showLine: true; lineColor: #00e5ff; lineOpacity: 0.85">
+      </a-entity>
+
+      <!-- Meta Quest 3S Touch Plus Left Controller -->
+      <a-entity
+        id="left-hand"
+        laser-controls="hand: left"
+        raycaster="objects: .clickable; far: 4; showLine: true; lineColor: #00e5ff; lineOpacity: 0.85">
+      </a-entity>
+    </a-entity>
+
+    <!-- LIGHTING -->
+    <a-entity light="type: ambient; color: #ffffff; intensity: 0.7"></a-entity>
+    <a-entity light="type: directional; color: #ffffff; intensity: 0.9; position: 2 4 2"></a-entity>
+    <a-entity light="type: point; color: #00e5ff; intensity: 0.8; distance: 5; position: 0 2 -1"></a-entity>
+
+    <!-- VIRTUAL WAREHOUSE LAB ENVIRONMENT (Automatically hidden in Quest AR Passthrough) -->
+    <a-entity id="virtual-environment" visible="true">
+      <a-sky color="#030712"></a-sky>
+      <!-- Industrial Grid Floor -->
+      <a-plane
+        rotation="-90 0 0"
+        position="0 0 0"
+        width="20"
+        height="20"
+        material="color: #0b1120; roughness: 0.8; metalness: 0.2">
+      </a-plane>
+      <a-grid
+        position="0 0.001 0"
+        material="color: #1e293b; opacity: 0.4"
+        width="20"
+        height="20"
+        divisions="20">
+      </a-grid>
+    </a-entity>
+
+    <!-- =========================================================================
+         CENTER WORKTABLE & 3D PALLET RIG
+         Positioned at waist-height (y=0.75m, z=-1.1m) for optimal Quest ergonomics.
+         ========================================================================= -->
+    <a-entity id="workstation" position="0 0.75 -1.1">
+      
+      <!-- Brushed Stainless Steel Lab Table -->
+      <a-entity id="packing-table" position="0 0 0">
+        <!-- Table Top -->
+        <a-box
+          position="0 -0.025 0"
+          width="1.15"
+          height="0.05"
+          depth="0.95"
+          material="color: #1e293b; metalness: 0.6; roughness: 0.3">
+        </a-box>
+        <!-- Table Frame Trim -->
+        <a-box
+          position="0 -0.05 0"
+          width="1.18"
+          height="0.015"
+          depth="0.98"
+          material="color: #00e5ff; emissive: #00838f; emissiveIntensity: 0.3">
+        </a-box>
+        <!-- 4 Chrome Table Legs -->
+        <a-cylinder position="-0.52 -0.40 -0.42" radius="0.025" height="0.75" material="color: #475569; metalness: 0.8"></a-cylinder>
+        <a-cylinder position="0.52 -0.40 -0.42" radius="0.025" height="0.75" material="color: #475569; metalness: 0.8"></a-cylinder>
+        <a-cylinder position="-0.52 -0.40 0.42" radius="0.025" height="0.75" material="color: #475569; metalness: 0.8"></a-cylinder>
+        <a-cylinder position="0.52 -0.40 0.42" radius="0.025" height="0.75" material="color: #475569; metalness: 0.8"></a-cylinder>
+      </a-entity>
+
+      <!-- 3D Voxel Pallet Entity (Interactive 100-cell grid) -->
+      <a-entity id="pallet-grid" voxel-pallet position="0 0.08 0"></a-entity>
+
+      <!-- Warning Toast for Exceeded Budget -->
+      <a-entity id="hud-budget-alert" position="0 0.65 0.15" visible="false">
+        <a-plane width="0.7" height="0.12" material="color: #ef4444; opacity: 0.9"></a-plane>
+        <a-text
+          value="MAX 8 COLD PACKS ALLOWED!\nClick an existing pack to remove it."
+          align="center"
+          width="1.2"
+          color="#ffffff">
+        </a-text>
+      </a-entity>
+
+      <!-- =======================================================================
+           LEFT WING PANEL: "2D SPREADSHEET LOG (THE TRADITIONAL BLIND SPOT)"
+           Shows what warehouse handlers see on 2D screens: Avg = 5.8°C (PASS ✔)
+           ======================================================================= -->
+      <a-entity id="left-wing-panel" position="-0.92 0.55 0.08" rotation="0 28 0">
+        <!-- Panel Backing (Styled like Excel / Google Sheets) -->
+        <a-plane width="0.78" height="0.92" material="color: #0f172a; opacity: 0.92; roughness: 0.4"></a-plane>
+        <a-box width="0.79" height="0.93" depth="0.01" material="color: #107c41; metalness: 0.4" position="0 0 -0.006"></a-box>
+
+        <!-- Excel Green Header -->
+        <a-plane width="0.74" height="0.10" position="0 0.38 0.005" material="color: #107c41"></a-plane>
+        <a-text
+          value="2D EXCEL TEMPERATURE LOG"
+          align="center"
+          width="1.5"
+          color="#ffffff"
+          position="0 0.40 0.01">
+        </a-text>
+        <a-text
+          value="Fleet Dispatch Manifest #VXC-4882"
+          align="center"
+          width="1.0"
+          color="#a7f3d0"
+          position="0 0.35 0.01">
+        </a-text>
+
+        <!-- Simulated Spreadsheet Rows -->
+        <a-plane width="0.72" height="0.48" position="0 0.07 0.005" material="color: #1e293b; opacity: 0.85"></a-plane>
+        <a-text
+          value="SENSOR ID    PROBE LOCATION      TEMP     STATUS\n------------------------------------------------\nSEN-01       Front Wall Probe     4.2 C    PASS [OK]\nSEN-02       Door Perimeter       5.1 C    PASS [OK]\nSEN-03       Rear Wall Probe      6.2 C    PASS [OK]\nSEN-04       Floor Edge Probe     5.4 C    PASS [OK]\n------------------------------------------------\n2D FLEET AVERAGE:  5.8 C  -->  [ COMPLIANT ]\nGOVERNMENT BATCH STATUS: APPROVED FOR DISPATCH"
+          align="left"
+          position="-0.33 0.26 0.01"
+          width="0.82"
+          color="#f8fafc"
+          wrap-count="48">
+        </a-text>
+
+        <!-- The Deceptive Stamp -->
+        <a-plane width="0.68" height="0.09" position="0 -0.22 0.005" material="color: rgba(16, 185, 129, 0.25)"></a-plane>
+        <a-text
+          value="VERDICT: 2D LOG SAYS SAFE (PASS)"
+          align="center"
+          width="1.3"
+          color="#34d399"
+          position="0 -0.22 0.01">
+        </a-text>
+
+        <!-- Explanatory Footnote -->
+        <a-text
+          value="* Why 2D Fails: External sensors only sample\nthe outer airflow, completely blind to 3D core hot pockets!"
+          align="center"
+          width="0.75"
+          color="#94a3b8"
+          position="0 -0.36 0.01">
+        </a-text>
+      </a-entity>
+
+      <!-- =======================================================================
+           RIGHT WING PANEL: "3D VOLUMETRIC REALITY & INTERACTIVE CONTROLS"
+           Reveals the internal 11.4°C hotspot and lets the user correct it live.
+           ======================================================================= -->
+      <a-entity id="right-wing-panel" position="0.92 0.55 0.08" rotation="0 -28 0">
+        <!-- Backing Plate -->
+        <a-plane width="0.82" height="0.94" material="color: #0a0f1d; opacity: 0.92; roughness: 0.4"></a-plane>
+        <a-box width="0.83" height="0.95" depth="0.01" material="color: #00e5ff; metalness: 0.5" position="0 0 -0.006"></a-box>
+
+        <!-- Telemetry Header -->
+        <a-plane width="0.78" height="0.10" position="0 0.40 0.005" material="color: #0284c7"></a-plane>
+        <a-text
+          value="3D VOLUMETRIC TELEMETRY"
+          align="center"
+          width="1.5"
+          color="#ffffff"
+          position="0 0.42 0.01">
+        </a-text>
+        <a-text
+          value="Live Spatial Mesh Analysis"
+          align="center"
+          width="1.0"
+          color="#bae6fd"
+          position="0 0.37 0.01">
+        </a-text>
+
+        <!-- Real-Time Metrics Block -->
+        <a-plane width="0.76" height="0.25" position="0 0.21 0.005" material="color: #0f172a; opacity: 0.9"></a-plane>
+        <a-text
+          id="vr-metrics-text"
+          value="SIMULATION TIME: 48h / 48h\n3D PEAK CORE TEMP: 11.4 C\nBREACHED VIALS (>8 C): 14 VIALS\nFREEZE RISK (<2 C): 0 VIALS\nCOLD PACK BUDGET: 3 / 8 USED\nVIEW MODE: COMPACT PACK"
+          align="left"
+          position="-0.35 0.30 0.01"
+          width="0.82"
+          color="#f8fafc"
+          wrap-count="42">
+        </a-text>
+
+        <!-- Volumetric Verdict Status Badge -->
+        <a-plane width="0.76" height="0.07" position="0 0.04 0.005" material="color: #1e293b"></a-plane>
+        <a-text
+          id="vr-status-badge"
+          value="[ CRITICAL: THERMAL BREACH - DO NOT SHIP ✖ ]"
+          align="center"
+          width="1.15"
+          color="#ef4444"
+          position="0 0.04 0.01">
+        </a-text>
+
+        <!-- Time Scrubber Row [0h] [12h] [24h] [36h] [48h] -->
+        <a-text value="TIME SCRUBBER (HOURS):" align="left" position="-0.37 -0.02 0.01" width="0.8" color="#94a3b8"></a-text>
+        <a-entity position="0 -0.07 0.01">
+          <a-box id="btn-hour-0" class="clickable" interactive-button="action: set-hour; param: 0" position="-0.28 0 0" width="0.12" height="0.05" depth="0.01" material="color: #1e293b">
+            <a-text value="0h" align="center" width="0.9" position="0 0 0.008" color="#ffffff"></a-text>
+          </a-box>
+          <a-box id="btn-hour-1" class="clickable" interactive-button="action: set-hour; param: 1" position="-0.14 0 0" width="0.12" height="0.05" depth="0.01" material="color: #1e293b">
+            <a-text value="12h" align="center" width="0.9" position="0 0 0.008" color="#ffffff"></a-text>
+          </a-box>
+          <a-box id="btn-hour-2" class="clickable" interactive-button="action: set-hour; param: 2" position="0.00 0 0" width="0.12" height="0.05" depth="0.01" material="color: #1e293b">
+            <a-text value="24h" align="center" width="0.9" position="0 0 0.008" color="#ffffff"></a-text>
+          </a-box>
+          <a-box id="btn-hour-3" class="clickable" interactive-button="action: set-hour; param: 3" position="0.14 0 0" width="0.12" height="0.05" depth="0.01" material="color: #1e293b">
+            <a-text value="36h" align="center" width="0.9" position="0 0 0.008" color="#ffffff"></a-text>
+          </a-box>
+          <a-box id="btn-hour-4" class="clickable" interactive-button="action: set-hour; param: 4" position="0.28 0 0" width="0.12" height="0.05" depth="0.01" material="color: #00e5ff">
+            <a-text value="48h" align="center" width="0.9" position="0 0 0.008" color="#000000"></a-text>
+          </a-box>
+        </a-entity>
+
+        <!-- Layer Slicing Controls (Exposes Inner Core to Laser) -->
+        <a-text value="LAYER CUT (Y-AXIS):" align="left" position="-0.37 -0.13 0.01" width="0.8" color="#94a3b8"></a-text>
+        <a-entity position="0 -0.18 0.01">
+          <a-box id="btn-layer-all" class="clickable" interactive-button="action: set-layer; param: ALL" position="-0.27 0 0" width="0.16" height="0.05" depth="0.01" material="color: #00e5ff">
+            <a-text value="ALL (4)" align="center" width="0.9" position="0 0 0.008" color="#000000"></a-text>
+          </a-box>
+          <a-box id="btn-layer-top" class="clickable" interactive-button="action: set-layer; param: TOP_CUT" position="-0.09 0 0" width="0.16" height="0.05" depth="0.01" material="color: #1e293b">
+            <a-text value="TOP CUT" align="center" width="0.85" position="0 0 0.008" color="#ffffff"></a-text>
+          </a-box>
+          <a-box id="btn-layer-core" class="clickable" interactive-button="action: set-layer; param: CORE" position="0.09 0 0" width="0.16" height="0.05" depth="0.01" material="color: #1e293b">
+            <a-text value="CORE" align="center" width="0.9" position="0 0 0.008" color="#ffffff"></a-text>
+          </a-box>
+          <a-box id="btn-layer-base" class="clickable" interactive-button="action: set-layer; param: BASE" position="0.27 0 0" width="0.16" height="0.05" depth="0.01" material="color: #1e293b">
+            <a-text value="BASE" align="center" width="0.9" position="0 0 0.008" color="#ffffff"></a-text>
+          </a-box>
+        </a-entity>
+
+        <!-- View Mode: 3D Explode Button -->
+        <a-entity position="0 -0.26 0.01">
+          <a-box class="clickable" interactive-button="action: toggle-explode" width="0.74" height="0.06" depth="0.01" material="color: #334155">
+            <a-text id="btn-explode-text" value="VIEW: EXPLODE 3D (REACH INNER CORE)" align="center" width="1.15" position="0 0 0.008" color="#ffffff"></a-text>
+          </a-box>
+        </a-entity>
+
+        <!-- Instant Preset Buttons for Judges -->
+        <a-text value="ONE-CLICK SCENARIO PRESETS:" align="left" position="-0.37 -0.32 0.01" width="0.8" color="#94a3b8"></a-text>
+        <a-entity position="0 -0.38 0.01">
+          <a-box class="clickable" interactive-button="action: preset-bad" position="-0.26 0 0" width="0.22" height="0.055" depth="0.01" material="color: #ef4444">
+            <a-text value="BAD PACK" align="center" width="0.95" position="0 0 0.008" color="#ffffff"></a-text>
+          </a-box>
+          <a-box class="clickable" interactive-button="action: preset-opt" position="0.00 0 0" width="0.22" height="0.055" depth="0.01" material="color: #10b981">
+            <a-text value="AI AUTO-FIX" align="center" width="0.95" position="0 0 0.008" color="#ffffff"></a-text>
+          </a-box>
+          <a-box class="clickable" interactive-button="action: preset-freeze" position="0.26 0 0" width="0.22" height="0.055" depth="0.01" material="color: #0284c7">
+            <a-text value="FREEZE DEMO" align="center" width="0.95" position="0 0 0.008" color="#ffffff"></a-text>
+          </a-box>
+        </a-entity>
+      </a-entity>
+
+      <!-- Center Floating Title Ribbon -->
+      <a-entity position="0 0.88 -0.05">
+        <a-plane width="0.9" height="0.10" material="color: #0a0f1d; opacity: 0.9"></a-plane>
+        <a-text
+          value="COLDCHAIN-AR // THERMAL BREACH DETECTION"
+          align="center"
+          width="1.6"
+          color="#00e5ff"
+          position="0 0.02 0.01">
+        </a-text>
+        <a-text
+          value="Point Quest Controller Laser & Click Trigger to Place/Remove Cold Packs"
+          align="center"
+          width="1.0"
+          color="#94a3b8"
+          position="0 -0.025 0.01">
+        </a-text>
+      </a-entity>
+
+    </a-entity> <!-- End workstation -->
+
+  </a-scene>
+
+  <!-- =========================================================================
+       2D HTML & SYNC GLUE CODE
+       ========================================================================= -->
+  <script>
+    // Sync 2D HTML Dashboard with Simulation State
+    window.addEventListener('coldchain-update', (evt) => {
+      const state = evt.detail;
+      const stats = state.stats;
+
+      // 2D vs 3D numbers
+      const el2D = document.getElementById('hud-val-2d');
+      const el3D = document.getElementById('hud-val-3d');
+      const elBreach = document.getElementById('hud-val-breach');
+      const elPacks = document.getElementById('hud-val-packs');
+      const elBanner = document.getElementById('hud-status-banner');
+
+      if (el2D) el2D.textContent = `${stats.avgTemp2D.toFixed(1)}°C`;
+      if (el3D) {
+        el3D.textContent = `${stats.maxTemp3D.toFixed(1)}°C`;
+        el3D.className = `metric-val ${stats.maxTemp3D > 8.0 ? 'breach' : 'safe'}`;
+      }
+      if (elBreach) {
+        elBreach.textContent = `${stats.breachedCount} Vials`;
+        elBreach.className = `metric-val ${stats.breachedCount > 0 ? 'breach' : 'safe'}`;
+      }
+      if (elPacks) {
+        elPacks.textContent = `${state.coldPackCount} / ${SIM_CONFIG.MAX_COLD_PACKS} Max`;
+      }
+
+      if (elBanner) {
+        if (stats.status === 'ALL_SAFE_PASS') {
+          elBanner.className = 'status-banner pass';
+          elBanner.textContent = 'Status: Zero Defects (Approved - Ready to Ship ✔)';
+        } else if (stats.status === 'FREEZE_DAMAGE') {
+          elBanner.className = 'status-banner fail';
+          elBanner.textContent = `Status: Critical Freeze Damage (${stats.freezeCount} Vials < 2°C)`;
+        } else {
+          elBanner.className = 'status-banner fail';
+          elBanner.textContent = `Status: Critical Heat Breach (${stats.breachedCount} Vials > 8°C)`;
+        }
+      }
+    });
+
+    // Helper functions for 2D Screen buttons
+    function toggleHtmlExplode() {
+      AppState.isExploded = !AppState.isExploded;
+      SoundEngine.explode();
+      broadcastStateChange();
+    }
+
+    const layerOrder = ['ALL', 'TOP_CUT', 'CORE', 'BASE'];
+    let layerIdx = 0;
+    function cycleHtmlLayers() {
+      layerIdx = (layerIdx + 1) % layerOrder.length;
+      AppState.layerFilter = layerOrder[layerIdx];
+      SoundEngine.click();
+      broadcastStateChange();
+    }
+
+    // Auto-initialize Default Bad Packing Scenario on DOM ready
+    window.addEventListener('DOMContentLoaded', () => {
+      loadBadPackingPreset();
+    });
+  </script>
+</body>
+</html>
