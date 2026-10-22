@@ -8,7 +8,8 @@
 ---
 
 ## 🚀 Live Demo & Deployment
-- **Live URL:** `https://YOUR_USERNAME.github.io/coldchain-ar/` *(Replace with your GitHub username upon fork/push)*
+- **Live URL:** [https://sagarbanik840.github.io/ColdChain-AR/](https://sagarbanik840.github.io/ColdChain-AR/)
+- **GitHub Repository:** [https://github.com/SagarBanik840/ColdChain-AR](https://github.com/SagarBanik840/ColdChain-AR)
 - **Demo Ready in < 60 Seconds:** Open the link in **Meta Quest Browser** on Quest 3S, tap **Enter AR**, and the holographic packing table anchors directly onto your physical floor.
 
 ---
@@ -62,20 +63,20 @@ git commit -m "feat: ColdChain-AR WebXR prototype for Meta Quest 3S"
 ```
 
 ### 2. Create GitHub Repo & Push
-Create a new public repository named `coldchain-ar` on your GitHub account, then run:
+Push to the repository `https://github.com/SagarBanik840/ColdChain-AR.git`:
 ```bash
 git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/coldchain-ar.git
+git remote add origin https://github.com/SagarBanik840/ColdChain-AR.git
 git push -u origin main
 ```
 
 ### 3. Enable GitHub Pages
-1. Go to your GitHub repository in your browser: `https://github.com/YOUR_USERNAME/coldchain-ar`.
+1. Go to your GitHub repository in your browser: `https://github.com/SagarBanik840/ColdChain-AR`.
 2. Click **Settings** (gear icon) -> **Pages** (in left sidebar).
 3. Under **Branch**, select `main` and folder `/ (root)`, then click **Save**.
 4. Within 60 seconds, your site is published at:
    ```
-   https://YOUR_USERNAME.github.io/coldchain-ar/
+   https://sagarbanik840.github.io/ColdChain-AR/
    ```
 
 ---
@@ -84,7 +85,7 @@ git push -u origin main
 
 1. **Put on your Meta Quest 3S headset**.
 2. Open the built-in **Meta Quest Browser**.
-3. Type in your GitHub Pages URL (e.g., `https://YOUR_USERNAME.github.io/coldchain-ar/`).
+3. Type in your GitHub Pages URL: `https://sagarbanik840.github.io/ColdChain-AR/`
    * *Tip:* To ensure fresh loading without browser cache during live iteration, append `?v=1` (or `?v=2`) to the URL.
 4. On the webpage, tap the **Enter AR** button in the bottom-right corner.
 5. **Full-Color Passthrough:** The virtual lab walls disappear, and the packing table anchors into your physical room at waist height.
